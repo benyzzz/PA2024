@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='profil.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="main">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <ul class="flashes">
+                {% for message in messages %}
+                    <li>{{ message }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+        <div class="profile-header">
+            <div class="profile-picture">
+                <form id="profile-pic-form" action="{{ url_for('main.upload_profile_pic') }}" method="POST" enctype="multipart/form-data">
+                    <input type="file" id="profile_pic_input" name="profile_pic" style="display:none;" onchange="document.getElementById('profile-pic-form').submit()">
+                    <img src="{{ current_user.profile_pic_url or url_for('static', filename='uploads/default.png') }}" alt="Profile Picture" width="100" height="100" onclick="document.getElementById('profile_pic_input').click()">
+                </form>
+            </div>
+            <div class="profile-info">
+                <h1>{{ current_user.username }}</h1>
+                <p>Woa User</p>
+            </div>
+            <div class="logout">
+                <a href="{{ url_for('main.logout') }}">
+                    <button>Logout</button>
+                </a>
+            </div>
+        </div>
+
+
+        <div class="card">
+            <div class="card-header">
+                <h2>IDENTITY</h2>
+            </div>
+            <div class="card-body">
+                <table>
+                    <tbody>
+                        <tr>
+                            <td>Name</td>
+                            <td>:</td>
+                            <td data-field="username">{{ current_user.username }}</td>
+                            <td><button onclick="editField(this)">✏️</button></td>
+                        </tr>
+                        <tr>
+                            <td>Email</td>
+                            <td>:</td>
+                            <td data-field="email">{{ current_user.email }}</td>
+                            <td><button onclick="editField(this)">✏️</button></td>
+                        </tr>
+                        <tr>
+                            <td>Address</td>
+                            <td>:</td>
+                            <td data-field="address">{{ current_user.address or 'None' }}</td>
+                            <td><button onclick="editField(this)">✏️</button></td>
+                        </tr>
+                        <tr>
+                            <td>Hobbies</td>
+                            <td>:</td>
+                            <td data-field="hobbies">{{ current_user.hobbies or 'None' }}</td>
+                            <td><button onclick="editField(this)">✏️</button></td>
+                        </tr>
+                        <tr>
+                            <td>Skill</td>
+                            <td>:</td>
+                            <td data-field="skills">{{ current_user.skills or 'None' }}</td>
+                            <td><button onclick="editField(this)">✏️</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>RESERVATIONS ❤️</h2>
+            </div>
+            <div class="card-body">
+                <!-- User's reservations content -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+async function fetchProperties() {
+        try {
+            const response = await fetch('/api/properties');
+            const properties = await response.json();
+            const cardsArea = document.getElementById('cards-area');
+            const like = window.localStorage.getItem("like")
+
+            properties.forEach(property => {
+                if (like.includes(property.id)) {
+
+
+                const cardWrapper = document.createElement('div');
+                cardWrapper.className = 'card-wrapper main-card';
+
+                const card = document.createElement('a');
+                card.className = 'card cardItemjs';
+                card.onclick = function() {
+                    openModal();
+                    document.querySelector("#picturezoom").src  = property.image_url;
+                    document.querySelector("#descriptionzoom").innerHTML = property.description;
+                    window.localStorage.setItem("selected_id",property.id)
+                };
+
+                const cardImageWrapper = document.createElement('div');
+                cardImageWrapper.className = 'card-image-wrapper';
+
+                const img = document.createElement('img');
+                img.src = property.image_url;
+                img.alt = 'Property Image';
+
+                const cardInfo = document.createElement('div');
+                cardInfo.className = 'card-info';
+
+                const cardTextBig = document.createElement('div');
+                cardTextBig.className = 'card-text big cardText-js';
+                cardTextBig.textContent = property.title;
+
+                const cardTextSmallLocation = document.createElement('div');
+                cardTextSmallLocation.className = 'card-text small';
+                cardTextSmallLocation.textContent = property.location;
+
+                const cardTextSmallPrice = document.createElement('div');
+                cardTextSmallPrice.className = 'card-text small';
+                cardTextSmallPrice.innerHTML = `Starts from: <span class="card-price">$${property.price}</span>`;
+
+                cardImageWrapper.appendChild(img);
+                cardInfo.appendChild(cardTextBig);
+                cardInfo.appendChild(cardTextSmallLocation);
+                cardInfo.appendChild(cardTextSmallPrice);
+                card.appendChild(cardImageWrapper);
+                card.appendChild(cardInfo);
+                cardWrapper.appendChild(card);
+                cardsArea.appendChild(cardWrapper);
+            }});
+        } catch (error) {
+            console.error('Error fetching properties:', error);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', fetchProperties);
+
+
+        function editField(button) {
+            const td = button.parentElement.previousElementSibling;
+            const value = td.textContent.trim();
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = value;
+            td.textContent = '';
+            td.appendChild(input);
+
+            button.textContent = 'Save';
+            button.onclick = function() { saveField(td, button) };
+        }
+
+        function saveField(td, button) {
+            const input = td.firstElementChild;
+            const value = input.value.trim();
+            const field = td.getAttribute('data-field');
+
+            console.log(`Saving field: ${field} with value: ${value}`);
+
+            const data = {};
+            data[field] = value;
+
+            fetch("{{ url_for('main.update_profile') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('Profile updated successfully');
+                    td.textContent = value;
+                    button.textContent = '✏️';
+                    button.onclick = function() { editField(button) };
+                } else {
+                    alert('Error updating profile');
+                }
+            });
+        }
+    </script>
+
+</body>
+</html>
